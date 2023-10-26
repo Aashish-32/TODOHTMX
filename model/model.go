@@ -3,17 +3,21 @@ package model
 import "fmt"
 
 type Todo struct {
-	id        uint64 `json:"id"`
-	todo      string `json:"todo"`
-	completed bool   `json:"completed"`
+	Id        uint64 `json:"id"`
+	Todo      string `json:"todo"`
+	Completed bool   `json:"completed"`
 }
 
 func CreateTodo(todo string) error {
 	statement := "insert into todos(todo , completed) values ($1, $2); "
 
-	_, err := db.Query(statement, todo, false)
+	if _, err := db.Query(statement, todo, false); err != nil {
+		fmt.Println("couldnot query db to get all todos", err)
+		return err
 
-	return err
+	}
+
+	return nil
 }
 func GetallTodos() ([]Todo, error) {
 	todos := []Todo{}
@@ -21,34 +25,36 @@ func GetallTodos() ([]Todo, error) {
 	rows, err := db.Query(statement)
 
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("couldnot query db to get all todos", err)
 		return todos, err
 
 	}
 	defer rows.Close()
+
 	for rows.Next() {
 		var title string
 		var completed bool
 		var id uint64
 
-		if err := rows.Scan(&id, &title, &completed); err != nil {
+		err := rows.Scan(&id, &title, &completed)
+		if err != nil {
 			return todos, err
 		}
 		todo := Todo{
-			id:        id,
-			todo:      title,
-			completed: completed,
+			Id:        id,
+			Todo:      title,
+			Completed: completed,
 		}
 		todos = append(todos, todo)
 	}
 	return todos, nil
 }
 
-func GetTodo(id uint64) (Todo, error) {
+func GetTodo(Id uint64) (Todo, error) {
 	todo := Todo{}
-	statement := "Select * from todos where id==$1"
+	statement := "Select * from todos where Id=$1"
 
-	row, err := db.Query(statement, id)
+	row, err := db.Query(statement, Id)
 	if err != nil {
 		return todo, err
 	}
@@ -56,42 +62,41 @@ func GetTodo(id uint64) (Todo, error) {
 	for row.Next() {
 		var title string
 		var completed bool
-		var id uint64
+		var Id uint64
 
-		err := row.Scan(&id, &title, &completed)
+		err := row.Scan(&Id, &title, &completed)
 		if err != nil {
 			return todo, err
 		}
 
 		todo = Todo{
-			id:        id,
-			todo:      title,
-			completed: completed,
+			Id:        Id,
+			Todo:      title,
+			Completed: completed,
 		}
 	}
 	return todo, err
 }
 
-func MarkCompleted(id uint64) error {
+func MarkCompleted(Id uint64) error {
 
-	if todo, err := GetTodo(id); err != nil {
+	todo, err := GetTodo(Id)
+	if err != nil {
 		return err
-	} else {
+	}
+	statement := "update todos set completed=$2 where Id=$1;"
 
-		statement := "update todos set completed =$2 where id = $1 "
+	_, err = db.Exec(statement, Id, !todo.Completed)
+	if err != nil {
+		return err
 
-		_, err := db.Exec(statement, id, !todo.completed)
-		if err != nil {
-			return err
-
-		}
 	}
 	return nil
 }
 
-func delete(id uint64) error {
-	statement := "delete from todos where id==$1"
+func Deletetodo(Id uint64) error {
+	statement := "delete from todos where Id=$1"
 
-	_, err := db.Exec(statement, id)
+	_, err := db.Exec(statement, Id)
 	return err
 }
